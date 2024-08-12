@@ -236,8 +236,8 @@ full citation, do nothing."
       (dtk-go-to bk ch vs))))
 
 (defun dtk-go-to (&rest retrieve-setup-args
-		  ;&optional book chapter verse
-			    )
+                                        ;&optional book chapter verse
+			)
   "Take a cue from the current module, if specified; otherwise query
 the user for the desired module. Use the values specified in
 DTK-MODULE-MAP to navigate to the desired text."
@@ -250,20 +250,20 @@ DTK-MODULE-MAP to navigate to the desired text."
                                                  nil t nil nil '(nil)))
                             dtk-module)))
     (with-dtk-module final-module
-      (cond ((dtk-module-available-p dtk-module)
-	     (let ((retrieve-setup (or (dtk-module-map-get dtk-module :retrieve-setup)
-				       (dtk-module-map-get (dtk-module-get-category-for-module dtk-module) :retrieve-setup))))
-	       (if retrieve-setup (apply retrieve-setup retrieve-setup-args)))
-	     (dtk-view-text
-	      t				; clear-buffer-p
-	      t
-	      dtk-module))
-	    (t
-	     (message "Module %s is not available. Use dtk-select-module (bound to '%s' in dtk mode) to select a different module. Available modules include %s"
-		      dtk-module
-		      (key-description (elt (where-is-internal 'dtk-select-module dtk-mode-map) 0))
-		      (dtk-module-names dtk-module-category))
-	     nil)))))
+                     (cond ((dtk-module-available-p dtk-module)
+	                    (let ((retrieve-setup (or (dtk-module-map-get dtk-module :retrieve-setup)
+				                      (dtk-module-map-get (dtk-module-get-category-for-module dtk-module) :retrieve-setup))))
+	                      (if retrieve-setup (apply retrieve-setup retrieve-setup-args)))
+	                    (dtk-view-text
+	                     t				; clear-buffer-p
+	                     t
+	                     dtk-module))
+	                   (t
+	                    (message "Module %s is not available. Use dtk-select-module (bound to '%s' in dtk mode) to select a different module. Available modules include %s"
+		                     dtk-module
+		                     (key-description (elt (where-is-internal 'dtk-select-module dtk-mode-map) 0))
+		                     (dtk-module-names dtk-module-category))
+	                    nil)))))
 
 (defmacro with-dtk-module (module &rest body)
   "Temporarily consider module MODULE as the default module."
@@ -300,24 +300,41 @@ obtain book, chapter, and verse."
          (final-verse   (or (when verse (number-to-string verse))
                             (read-from-minibuffer "Verse: ")))
          (chapter-verse (concat final-chapter ":" final-verse)))
+    (let ((maybe-verse-range (if (> (length final-verse) 0)
+                                 (split-string final-verse "-")
+                               nil)))
+      ;; Expose these values to the retriever
+      (setf (elt dtk-to-retrieve 0)
+            (make-dtk-citation :bk final-book
+                               :ch (when (> (length final-chapter) 0)
+                                     (string-to-number final-chapter))
+                               :vs (when maybe-verse-range
+                                     (string-to-number (elt maybe-verse-range 0)))))
+      (setf (elt dtk-to-retrieve 1)
+            (if (elt maybe-verse-range 1)
+                (make-dtk-citation :bk final-book
+                                   :ch (when (> (length final-chapter) 0)
+                                         (string-to-number final-chapter))
+                                   :vs (string-to-number (elt maybe-verse-range 1)))
+              nil)))
     ;; If dtk-buffer-p is true, insert text in the default dtk buffer
-    (when dtk-buffer-p
-      (cond ((not (dtk-buffer-exists-p))
-	     (dtk-init))
-	    (t
-	     (switch-to-buffer dtk-buffer-name))))
-    ;; Expose these values to the retriever
-    (setf dtk-to-retrieve
-          (list
-           (make-dtk-citation :bk final-book
-                              :ch (when (> (length final-chapter) 0)
-                                    (string-to-number final-chapter))
-                              :vs (when (> (length final-verse) 0)
-                                    (string-to-number final-verse)))
-           nil))
+    ;; (when dtk-buffer-p
+    ;;   (cond ((not (dtk-buffer-exists-p))
+    ;;          (dtk-init))
+    ;;         (t
+    ;;          (switch-to-buffer dtk-buffer-name))))
+    ;; ;; Expose these values to the retriever
+    ;; (setf dtk-to-retrieve
+    ;;       (list
+    ;;        (make-dtk-citation :bk final-book
+    ;;                           :ch (when (> (length final-chapter) 0)
+    ;;                                 (string-to-number final-chapter))
+    ;;                           :vs (when (> (length final-verse) 0)
+    ;;                                 (string-to-number final-verse)))
+    ;;        nil))
     (with-dtk-module final-module
-      (dtk-retrieve-parse-insert
-       (current-buffer)))
+                     (dtk-retrieve-parse-insert
+                      (current-buffer)))
     ))
 
 (defun dtk-bible-parser (raw-string)
@@ -516,10 +533,10 @@ DTK-INSERTER."
   '(
     ;; key: string for module or module category
     ("Biblical Texts" :retriever dtk-bible-retriever
-                      :parser dtk-bible-parser
-                      :inserter dtk-insert-verses
-                      :retrieve-setup dtk-bible-retrieve-setup)
-    ;("Daily" dtk-daily-retrieve dtk-daily-parse dtk-daily-insert)
+     :parser dtk-bible-parser
+     :inserter dtk-insert-verses
+     :retrieve-setup dtk-bible-retrieve-setup)
+                                        ;("Daily" dtk-daily-retrieve dtk-daily-parse dtk-daily-insert)
     ("StrongsGreek"   :parser dtk-dict-strongs-parse)
     ("StrongsHebrew"  :parser dtk-dict-strongs-parse)
     )
@@ -1034,7 +1051,7 @@ insertion of a set of verses via DTK-INSERT-VERSES.")
 	   (switch-to-buffer dtk-buffer-name))))
   (when clear-buffer-p
     (dtk-clear-buffer (current-buffer)))
-  ;(dtk-set-module module)  Q: why is/was this here?  A1: it facilitated dtk-daily setting the module -- but really it makes more sense to do this at the level of dtk-daily, not here
+                                        ;(dtk-set-module module)  Q: why is/was this here?  A1: it facilitated dtk-daily setting the module -- but really it makes more sense to do this at the level of dtk-daily, not here
   (dtk-set-mode)
   (dtk-retrieve-parse-insert (current-buffer)))
 
@@ -1323,9 +1340,9 @@ node ELEMENT-NODE. If DESCENDP is true, descend into child element nodes."
 	;; At this point, StrongGreek-StrongsHebrew mismatch is the only
 	;; such case
 	((and (string= dict-module "StrongsGreek")
-		 (cl-equalp key-associated-module "StrongsHebrew"))
-	    (message "Requested StrongsGreek but using StrongsHebrew")
-	    "StrongsHebrew")
+	      (cl-equalp key-associated-module "StrongsHebrew"))
+	 (message "Requested StrongsGreek but using StrongsHebrew")
+	 "StrongsHebrew")
 	((and (string= dict-module "StrongsHebrew")
 	      (cl-equalp key-associated-module "StrongsGreek"))
 	 (message "Requested StrongsHebrew but using StrongsGreek")
@@ -1393,7 +1410,7 @@ node ELEMENT-NODE. If DESCENDP is true, descend into child element nodes."
 		   ((not (car key-module-note))
 		    (if (stringp (third key-module-note))
 			(message "%s" (third key-module-note))
-			(message "Unable to find dictionary data for %s." (cdr key-module))))
+		      (message "Unable to find dictionary data for %s." (cdr key-module))))
 		   (t
 		    (setf dict-module (dtk-dict-module-sanity-check (car key-module-note) dict-module (cdr key-module-note)))
 		    (if dict-module
